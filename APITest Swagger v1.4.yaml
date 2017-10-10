@@ -1,0 +1,733 @@
+swagger: '2.0'
+
+info:
+  version: "1.4"
+  title: PCSL 2.0
+  
+schemes:
+  - https #among other things, due to optional basic authentication (username + password)
+
+consumes:
+  - application/json
+produces:
+  - application/json
+
+securityDefinitions:
+  basicAuth:
+    type: basic
+    description: HTTP Basic Authentication.
+
+paths:
+  /v1/tenants/{tenant}/quotes/evaluate:
+    post:
+      description: returns calculation results for a quote/illustration/application
+      security:
+       - basicAuth: []
+      parameters:
+        - name: tenant
+          description: the tenant
+          in: path
+          required: true
+          type: string
+        - name: payload
+          in: body
+          schema:
+            $ref: "#/definitions/evaluateRequest"
+          required: true
+      responses:
+        "200":
+          description: Successful response
+          schema:
+            $ref: "#/definitions/evaluateResponse"
+        "400":
+          description: User error
+          schema:
+            $ref: "#/definitions/error"
+        "401":
+          description: Authentication failed
+          schema:
+            $ref: "#/definitions/error"
+        "403":
+          description: Authorization failed
+          schema:
+            $ref: "#/definitions/error"
+        "500":
+          description: System error
+          schema:
+            $ref: "#/definitions/error"
+
+definitions:
+  evaluateRequest:
+    type: object
+    properties:
+      evaluateRequest:
+        type: object
+        required: [configuredProduct, requestedCalculations]
+        properties:
+          configuredProduct:
+            type: object
+            description: This holds selectors with with a particular product version is selected. When ProductEffectiveDate is omitted, the last version of the product is selected. This supports the same three methods that Calculator supports.
+            properties:
+              productCode:
+                type: string
+              productVersionCode: # only supported in Calculator (not Servicer)
+                type: string
+              productEffectiveDate:
+                $ref: "#/definitions/dateType"
+          requestedCalculations:
+            type: array
+            items:
+              $ref: "#/definitions/requestedCalculationsEnum"
+          contracts:
+            type: array
+            items:
+              $ref: "#/definitions/contract"
+          businessParties:
+            type: array
+            items:
+              $ref: "#/definitions/businessParty"
+
+  evaluateResponse:
+    type: object
+    properties:
+      evaluateResponse:
+        type: object
+        properties:
+          configuredProduct:
+            type: object
+            description: This holds the code and version of the selected configured product.
+            properties:
+              productCode:
+                type: string
+              productVersionCode:
+                type: string
+          requestedCalculations:
+            type: array
+            items:
+              $ref: "#/definitions/requestedCalculationsEnum"
+          #outputs are on the Contracts and Coverages and CoverageRiders that are in the Contracts
+          contracts:
+            type: array
+            items:
+              $ref: "#/definitions/contract"
+
+  contract:
+    type: object
+    xml:
+      name: contract
+    required: [identifier]
+    properties:
+      identifier:
+        type: string
+      adviceQuoteTypeCode:
+        type: string                  # e.g., PersonalAdvice, GeneralAdvice
+      commissionTypeCode:
+        type: string                  # e.g., StandardHybrid, LevelCommission, GeneralAdvice, FeeForService, Other
+      createTimestamp:
+        $ref: "#/definitions/dateTimeType"
+      effectiveDate:
+        $ref: "#/definitions/dateType"
+      issueDate:
+        $ref: "#/definitions/dateType"
+      phaseCode:
+        $ref: "#/definitions/contractPhaseEnum"
+      structureCode:      
+        type: string                  # e.g., SuperPersonal, Business, PackagedCovers
+      termPeriodNumber:
+        type: number
+      typeCode:
+        type: string                  # e.g., Super, NonSuper
+      cpiInterestOptionIndicator:
+        type: boolean
+      currencyCode:
+        type: string                  # see ISO 4217 Currency Alpha Code https://en.wikipedia.org/wiki/ISO_4217
+                                      # e.g., AUD, EUR, JPY, USD
+      deathBenefitOptionText:
+        type: string
+      distributionChannelCode:
+        type: string                  # e.g., Agency, Broker, Online
+      excessPremiumAmount:
+        type: number
+      groupDiscountIndicator:
+        type: boolean
+      interfaceSystemCode:
+        type: string                  # e.g., US, PAS, GSSP
+      packagedCoveragesCode:
+        type: string                  # e.g., BusinessLoanCover, BuySellCover, HomeLoanCover, KeyPersonRevenue,
+                                      # PersonalCoverCapital, PersonalCoverIncome, SoleTraderIncome
+      paymentMethodCode:
+        type: string                  # e.g., NewPersonalContribution, Rollover, SMSFAccount, CreditCard, DebitCard
+      paymentTermPeriodNumber:
+        type: number
+      premiumFrequencyNumber:
+        $ref: "#/definitions/premiumFrequencyEnum"
+      premiumTypeCode:
+        $ref: "#/definitions/premiumTypeEnum"
+      premiumTypeNumber:
+        type: number
+      projectionYearsNumber:
+        type: number
+      #reference to linked contract
+      linkedContractIdentifier:
+        description: the id of a Contract, which the current Contract is linked to (reference link in PX)
+        type: string
+      #output
+      output:
+        $ref: "#/definitions/output"
+      #contained elements
+      coverages:
+        type: array
+        items:
+          $ref: "#/definitions/coverage"
+      coverageRiders:
+        type: array
+        items:
+          $ref: "#/definitions/coverageRider"
+      partyRole:                      # the owner of the contract
+          $ref: "#/definitions/partyRole"
+
+  coverage:
+    type: object
+    xml:
+      name: coverage
+    required: [identifier, typeCode]
+    properties:
+      identifier:
+        type: string
+      benefitPeriodNumber:
+        type: number
+      benefitPeriodTypeCode:
+        $ref: "#/definitions/benefitPeriodTypeEnum"
+      agePeriodNumber:
+        type: number
+      agePeriodTypeCode:
+        type: string
+      effectiveDate:
+        $ref: "#/definitions/dateType"
+      expireDate:
+        $ref: "#/definitions/dateType"
+      termPeriodNumber:
+        type: integer
+      termPeriodTypeCode:
+        $ref: "#/definitions/periodTypeEnum"
+      typeCode:
+        type: string                  # e.g., ADB, ADM, Life, TPD, IP, Trauma
+      cpiInterestRate:
+        type: number
+      emrLoadingNumber:
+        type: number
+      financingInterestRate:
+        type: number
+      financingMethodText:
+        type: string                  # e.g., BankFinancing, SelfFinancing
+      insuredAmount:
+        type: number
+      insuredIncomeTypeCode:
+        type: string                  # e.g., Agreed, EndorsedAgreed, Indemnity
+      moratoriumPeriodNumber:
+        type: number
+      moratoriumPeriodTypeCode:
+        type: string
+      paymentAgePeriodNumber:
+        type: number
+      paymentTermPeriodNumber:
+        type: number
+      premiumPayingStatusText:
+        type: string                  # e.g., PaidUp, Paying
+      waitingPeriodNumber:
+        type: number
+      waitingPeriodTypeCode:
+        $ref: "#/definitions/periodTypeEnum"
+      # reference to linked coverage
+      linkedCoverageIdentifier:
+        type: string
+        description: the id of the Coverage, which the current Coverage is linked to (reference link in PX)
+      #output
+      output:
+        $ref: "#/definitions/output"
+      #contained elements
+      manualAdjustments:
+        type: array
+        items:
+          $ref: "#/definitions/manualAdjustment"
+      partyRoles:
+        type: array
+        items:
+          $ref: "#/definitions/partyRole"
+          
+  coverageRider:
+    type: object
+    xml:
+      name: coverageRider
+    required: [identifier, typeCode, coverageIdentifier]
+    properties:
+      identifier:
+        type: string
+      insuredIncomeTypeCode:
+        type: string                  # e.g., Agreed, EndorsedAgreed, Indemnity
+      typeCode:
+        type: string                  # e.g., HomeLoan, TraumaExtra
+      coverageIdentifier:             # reference to coverage
+        type: string
+        description: the coverage (that exists either in the current policy, or in the 'super' policy in case of policy linking) to which this rider corresponds (reference link in PX)
+      #output
+      output:
+        $ref: "#/definitions/output"
+  
+  partyRole:
+    type: object
+    xml:
+      name: partyRole
+    required: [identifier, businessPartyIdentifier]
+    properties:
+      identifier:
+        type: string
+      annualIncomeAmount:
+        type: number
+      height:
+        type: number
+      weight:
+        type: number
+      typeCode:
+        type: string                  # e.g., Owner, Insured
+      bmiValue:                       # either BMIValue has a value, or height and weight
+        type: number
+      employmentTypeCode:
+        type: string                  # e.g., Employee, SoleTrader, BusinessOwner, Others
+      insuredClassCode:
+        type: string
+      issueAge:                       # either IssueAge or BirthDate has a value in a request
+        type: number
+      jointLifeRoleCode:
+        $ref: "#/definitions/jointLifeRoleEnum"
+      occupationCategoryCode:
+        $ref: "#/definitions/occupationCategoryEnum"
+      relationshipTypeCode:
+        type: string                  # e.g., Self, Other, AppointedTrustee, CompanyOrOtherEntity, 
+                                      # Fund, Daughter, Son, Spouse, Employee
+      smokingIndicator:
+        type: boolean
+      unitOfMeasurementTypeCode:
+        $ref: "#/definitions/unitOfMeasurementEnum"
+      #reference to business party
+      businessPartyIdentifier:
+        description: the business party that plays this role (reference link in PX)
+        type: string
+
+  manualAdjustment:
+    type: object
+    xml:
+      name: manualAdjustment
+    required: [identifier]
+    properties:
+      identifier:
+        type: string
+      endDate:
+        $ref: "#/definitions/dateType"
+      name:
+        type: string          # e.g., ManualLoading, PasttimeLoading, ExclusionHearthAttackLoading,
+                              # ExclusionCancerLoading, Discretionay1stYear, DiscretionaryAllYears
+      typeCode:
+        $ref: "#/definitions/adjustmentTypeEnum"
+      value:
+        type: number
+      reason:
+        type: string
+
+  businessParty:
+    type: object
+    xml:
+      name: businessParty
+    required: [identifier]
+    properties:
+      identifier:
+        type: string
+      birthDate:
+        $ref: "#/definitions/dateType"
+      countryOfCitizenshipCode:
+        type: string          # see ISO 3166-1 alpha-3; e.g., AUS, JPN, NLD, USA
+      countrySubdivisionOfResidenceCode:
+        type: string          # See ISO 3166-2; e.g., AU-ACT, JP-13, NL-ZH, US-NY
+      genderCode:
+        $ref: "#/definitions/genderEnum"
+      typeCode:
+        $ref: "#/definitions/partyTypeEnum"
+      residentNonResidentIndicator:
+        type: boolean
+
+  #data types
+
+  adjustmentTypeEnum:
+    allOf:
+      - $ref: "#/definitions/valueUnitEnum"
+
+  benefitPeriodTypeEnum:
+    allOf:
+      - $ref: "#/definitions/periodTypeEnum"
+    enum:
+      - ToAge
+
+  contractPhaseEnum:
+    type: string
+    enum:
+      - Sales
+      - Application
+      - Policy
+
+  periodTypeEnum:
+    type: string
+    enum:
+      - Day
+      - Week
+      - Month
+      - Year
+      
+  dateTimeType:
+    type: string
+    pattern: "\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}"
+    # allowed date time format: yyyy-mm-ddThh:mm:ss
+    
+  dateType:
+    type: string
+    pattern: "\\d{4}-\\d{2}-\\d{2}"
+    #allowed date format: yyyy-mm-dd
+    
+  genderEnum:
+    type: number
+    description: The gender of a person. Code numbers from ACORD OLI_LU_GENDER.
+    enum:
+      - 1                     # Male
+      - 2                     # Female
+      - 3                     # Unisex
+      - 4                     # Combined
+
+  jointLifeRoleEnum:
+    type: string
+    enum:
+      - PrimaryInsured
+      - SecondaryInsured
+      
+  occupationCategoryEnum:
+    type: string
+    pattern: \[A-Z1-9\]|\*    # A to Z, or 1 to 9, or *
+  
+  partyTypeEnum:
+    type: number
+    description: The type of business party. Code numbers from ACORD OLI_LU_PARTY
+    enum:
+      - 1                     # Person
+      - 2                     # Organization
+
+  premiumFrequencyEnum:
+    type: number
+    enum:
+      - 0                     # none
+      - 1                     # annual
+      - 2                     # semi-annual
+      - 4                     # quarterly
+      - 12                    # monthly
+      - 26                    # fortnightly
+      - 52                    # weekly
+      - 999                   # single
+
+  premiumTypeEnum:
+    type: string
+    enum:
+      - Stepped
+      - LevelYears
+      - LevelToAge
+
+  unitOfMeasurementEnum:
+    type: string
+    description: Applies to both height and weight. Code numbers from ACORD OLI_LU_MEASUREUNITS
+    enum:
+      - 1                     # length in centimeters, weight in kilograms
+      - 2                     # length in inches, weight in pound
+      - 3                     # length in feet with decimal being decimal fraction of feet
+                              # weight in pounds with decimal being decimal fraction of pound. 
+      - 4                     # length in in feet with decimal being inches
+                              # weight in pounds with decimal being ounces
+
+  valueUnitEnum:
+    type: string
+    enum:
+      - AgeVariation
+      - Factor
+      - Flat
+      - Percentage
+      - PerMille
+      
+  output:
+    type: object
+    properties:
+      vectors:
+        $ref: "#/definitions/vectors"
+      timeDependentVectors:
+        $ref: "#/definitions/timeDependentVectors"
+      quantityVectors:
+        $ref: "#/definitions/quantityVectors"
+      frequencyDependentVectors:
+        $ref: "#/definitions/frequencyDependentVectors"
+      
+  vectors:
+    type: array
+    items:
+      $ref: "#/definitions/vector"
+
+  vector:
+    type: object
+    properties:
+      name:
+        $ref: "#/definitions/commonCalculationNameEnum"
+      v:                    # the value of the output
+        type: string
+  
+  timeDependentVectors:
+    type: array
+    items:
+      $ref: "#/definitions/timeDependentVector"
+  
+  timeDependentVector:
+    type: object
+    properties:
+      name:
+        $ref: "#/definitions/commonCalculationNameEnum"
+      unitOfTime:
+        $ref: "#/definitions/timeDependentUnitEnum"
+      timeDependentValues:
+        $ref: "#/definitions/timeDependentValues"
+  
+  timeDependentValues:
+    type: array
+    items:
+      $ref: "#/definitions/timeDependentValue"
+  
+  timeDependentValue:
+    type: object
+    properties:
+      t:                # e.g., the policy year, or a date
+        type: string
+      v:
+        type: string    # the value on t
+  
+  quantityVectors:
+    type: array
+    items:
+      $ref: "#/definitions/quantityVector"
+  
+  quantityVector:
+    type: object
+    properties:
+      name:
+        $ref: "#/definitions/quantityVectorNameEnum"
+      unit:
+        $ref: "#/definitions/quantityVectorUnitEnum"
+      v:
+        type: string
+      description:
+        type: string
+
+  frequencyDependentVectors:
+    type: array
+    items:
+      $ref: "#/definitions/frequencyDependentVector"
+      
+  frequencyDependentVector:
+    type: object
+    properties:
+      name: 
+        $ref: "#/definitions/frequencyDependentVectorNameEnum"
+      frequencyDependentValues:
+        $ref: "#/definitions/frequencyDependentValues"
+      
+  frequencyDependentValues:
+    type: array
+    items:
+      $ref: "#/definitions/frequencyDependentValue"
+      
+  frequencyDependentValue:
+    type: object
+    properties:
+      frequency:
+        $ref: "#/definitions/premiumFrequencyEnum"
+      v:
+        type: string
+
+  error:
+    type: object
+    properties:
+      error:
+        type: object
+        properties:
+          type:
+            type: string
+            enum:
+              - Functional        # a business rule failed
+              - Technical         # a technical error occurred
+          origin:
+            type: string
+            enum:
+              - Client            # issue caused by client (e.g., violation of business rule (validation), incorrect JSON syntax)
+              - Server            # issue caused by server (e.g., calculator is down, px product cannot be found)
+          message:
+            type: string
+          detail:
+            $ref: "#/definitions/errorDetail"
+
+  errorDetail:
+    type: object
+    properties:
+      exceptions:
+        type: array
+        items:
+          $ref: "#/definitions/exception"
+
+  exception:
+    type: object
+    xml:
+      name: exception
+    properties:
+      exceptionCode:            # unique identifier of the error; to be used by consumer applications 
+                                # to display the corresponding localized message in UI
+        type: string
+      exceptionVersion:         # to further identify a specific version of the error
+        type: string
+      objectIdentifier:         # the identifier of the object in the input, which raises this exception
+        type: string
+      exceptionMessage:
+        $ref: "#/definitions/exceptionMessage"
+
+  exceptionMessage:
+    type: object
+    properties:
+      messageText:              # internal to px and for testing purposes; not to be used by consumer applications
+        type: string
+      messageStack:
+        type: string
+      messageParameters:        # only with validations and user defined errors; to be used by consumer applications 
+                                # to display parameter values inside the localized message
+        type: array
+        items:
+          $ref: "#/definitions/exceptionMessageParameter"
+      
+  exceptionMessageParameter:
+    type: object
+    properties:
+      parameterName:
+        type: string
+      parameterValue:
+        type: string
+        
+  # enums in vectors
+  
+  commonCalculationNameEnum:
+    type: string
+    enum:
+      - AgeInsured                        # Age of the insured on last birthday (effectively the current age)
+      - AgeInsuredNextBirthday            # Age of the insured on next birthday
+      - AgeJointInsured                   # Age of the joint insured on last birthday
+      - AgeJointInsuredNextBirthday       # Age of the joint insured on next birthday
+      - AgeOwner                          # Age of the owner on last birthday
+                                          # When owner = insured, see AgeInsured
+      - AgeOwnerNextBirthday              # Age of the owner on next birthday
+                                          # When owner = insured, see AgeInsuredNextBirthDay
+      - CashSurrenderValue            
+      - CashValue                   
+      - COIDeduction
+      - CommissionAmount
+      - CommissionApplicable
+      - CPIApplicable
+      - DeathBenefit
+      - DirectDistributionCost
+      - ExcessPremium
+      - FundManagementFee
+      - GrossInterestRate                 # A vector of the Gross Interest Rate(s) used in Variable 
+                                          # Interest Sensitive products. For Non variable products; it 
+                                          # is the same as the net interest rate.
+      - GrossPremium
+      - GuaranteedCashValue
+      - IncomeBenefitPeriod
+      - IncomeExcessPeriod
+      - InsuranceChargeAmount
+      - InsuredAmount
+      - InsuredAmountLinked
+      - InsuredAmountStandalone
+      - InsuredIncomeType
+      - InvestmentReturnAmount
+      - LoanBalance
+      - LoanChargeRate
+      - LoanInCash                        # The loan amount which is paid to the policy owner in cash
+      - LoanInterest
+      - MarketAdjustmentValue
+      - NetInterestRate
+      - OtherChargeAmount
+      - PolicyFee
+      - Premium                           # The premium for the selected premium frequency
+      - PremiumBeforeDiscountsAndLoadings # The premium before discounts and loadings for the selected premium 
+                                          # frequency
+      - PremiumLinked                     # The premium that is calculated for the portion of the 
+                                          # insured amount with the rate of the linked cover
+      - PremiumRebate
+      - PremiumStandalone                 # The premium that is calculated for the (insured amount - 
+                                          # linked amount) with the rate of this cover
+      - PremiumType
+      - StampDuty
+      - SurrenderCharge
+      - TotalAnnualisedPremium
+      - TotalAnnualisedPremiumExcludingStampDuty
+      - TotalCommissionAmount
+      - TotalStampDuty
+      - Withdrawal
+      - WithdrawalCharge
+
+  frequencyDependentVectorNameEnum:
+    type: string
+    enum:
+      - ModalPremiums
+      - ModalPremiumsBeforeDiscountsAndLoadings
+      - StampDuties
+      - TotalModalPremiums
+      - TotalModalPremiumsBeforeDiscountsAndLoadings
+
+  requestedCalculationsEnum:
+    type: string
+    description: This is a label that defines which calculations need to be output on both policy and coverage / rider level. Each product will have its unique outputs associated with a particular label that is known to that product. E.g., the label "illustration" can result, for a particular product, in a tabular format with yearly projected values for attained age, premium and insured amount. For another product it could be projected values for attained age, premium, premium before stamp duty and cash value.
+    enum:
+      - Illustration                      # label to specify a group of outputs typical for illustration evaluations
+      - Premium                           # label to identify a group of calculations typical for premium evaluations
+      - Quote                             # label to identify a group of calculations typical for quote evaluations
+
+  timeDependentUnitEnum:
+    type: string
+    enum:
+      - Date
+      - Day
+      - Month
+      - Year
+      - Week
+
+  quantityVectorNameEnum:
+    type: string
+    enum:
+      - AnnualSuperDiscount
+      - BMIDiscount
+      - CommissionDialDown
+      - CoverLoading
+      - Discretionary1stYear
+      - DiscretionaryAllYears
+      - DollarDiscount
+      - ExclusionCancerLoading
+      - ExclusionHearthAttackLoading
+      - GroupDiscount
+      - HealthLoading
+      - IntroductoryDiscount
+      - IPWithLPDiscount
+      - LargeSumAssuredDiscount
+      - MultiBenefitsDiscount
+      - Pasttimes
+      - PECLoading
+      - TPDWithTraumaDiscount
+
+  quantityVectorUnitEnum:
+    allOf:
+      - $ref: "#/definitions/valueUnitEnum"
